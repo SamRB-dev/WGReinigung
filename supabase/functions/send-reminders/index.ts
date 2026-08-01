@@ -15,10 +15,12 @@ function localParts(timeZone: string, date = new Date()) {
 }
 
 async function authorizeRequest(req: Request, forceEvents: boolean, url: string, anonKey: string, serviceKey: string) {
+  const admin = createClient(url, serviceKey);
+
   if (!forceEvents) {
-    const expected = Deno.env.get('REMINDER_CRON_SECRET');
-    const supplied = req.headers.get('x-cron-secret');
-    if (!expected || supplied !== expected) throw new Error('Unauthorized scheduler request');
+    const supplied = req.headers.get('x-cron-secret') ?? '';
+    const { data: valid, error } = await admin.rpc('verify_reminder_cron_secret', { p_secret: supplied });
+    if (error || valid !== true) throw new Error('Unauthorized scheduler request');
     return;
   }
 
@@ -27,7 +29,6 @@ async function authorizeRequest(req: Request, forceEvents: boolean, url: string,
   const { data: { user }, error } = await userClient.auth.getUser();
   if (error || !user) throw new Error('Unauthorized admin request');
 
-  const admin = createClient(url, serviceKey);
   const { data: membership } = await admin.from('household_members').select('is_admin').eq('user_id', user.id).eq('is_active', true).maybeSingle();
   if (!membership?.is_admin) throw new Error('Admin access required');
 }
