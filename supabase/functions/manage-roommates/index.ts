@@ -34,17 +34,25 @@ Deno.serve(async (req) => {
   }
 
   if (action !== 'invite' || !Array.isArray(body.members)) return new Response(JSON.stringify({ error: 'Invalid action' }), { status: 400, headers });
+  const { count } = await admin.from('household_members').select('id', { count: 'exact', head: true }).eq('household_id', adminMember.household_id);
+  let nextPosition = count ?? 0;
   const results = [];
   for (const member of body.members) {
     const email = String(member.email ?? '').trim().toLowerCase();
-    if (!email) continue;
+    const displayName = String(member.display_name ?? '').trim();
+    if (!email || !displayName) continue;
+    const { data: existingMember } = await admin.from('household_members').select('id,user_id').eq('household_id', adminMember.household_id).eq('email', email).maybeSingle();
     const temporaryPassword = randomPassword();
-    const { data: created, error: createError } = await admin.auth.admin.createUser({ email, password: temporaryPassword, email_confirm: true, user_metadata: { display_name: member.display_name, must_change_password: true } });
+    const { data: created, error: createError } = await admin.auth.admin.createUser({ email, password: temporaryPassword, email_confirm: true, user_metadata: { display_name: displayName, must_change_password: true } });
     if (createError && !createError.message.toLowerCase().includes('already')) {
       results.push({ email, ok: false, error: createError.message });
       continue;
     }
-    if (created?.user) await admin.from('household_members').update({ user_id: created.user.id }).eq('household_id', adminMember.household_id).eq('email', email);
+    if (!existingMember) {
+      await admin.from('household_members').insert({ household_id: adminMember.household_id, user_id: created?.user?.id ?? null, display_name: displayName, email, rotation_position: nextPosition++, is_admin: false });
+    } else if (created?.user && !existingMember.user_id) {
+      await admin.from('household_members').update({ user_id: created.user.id, display_name: displayName }).eq('id', existingMember.id);
+    }
     if (resendKey && emailFrom) {
       const html = `<h2>You were invited to WG Clean</h2><p>Temporary password: <strong>${temporaryPassword}</strong></p><p>Sign in with ${email}, then change your password in Settings.</p><h3>Android</h3><p><a href="${androidUrl}">Download and install the Android app</a>. Allow installation from your browser or file manager when prompted.</p><h3>iPhone/iPad</h3><p><a href="${iosUrl}">Open the iOS installation page</a> and follow the listed TestFlight/App Store instructions.</p>`;
       await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: emailFrom, to: [email], subject: 'Your WG Clean invitation', html }) });
