@@ -14,6 +14,10 @@ check_app_env() {
   required EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 }
 
+generate_icons() {
+  node scripts/generate-icons.mjs
+}
+
 case "${1:-help}" in
   help)
     cat <<'TXT'
@@ -29,36 +33,30 @@ WG Clean Docker commands
 install    Install exact dependencies from package-lock.json.
 bootstrap  One-time interactive Expo/Supabase setup.
 deploy     Push DB migrations and all Edge Functions.
-build-apk  Trigger a non-interactive EAS cloud APK build and wait for completion.
+build-apk  Generate icons and trigger a non-interactive EAS cloud APK build.
 TXT
     ;;
 
   install)
-    if [[ -f package-lock.json ]]; then
-      npm ci
-    else
-      npm install
-    fi
+    if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
     npx expo install --check
     ;;
 
   validate)
     check_app_env
+    generate_icons
     npm run typecheck
-    echo "Configuration and TypeScript checks passed."
+    echo "Configuration, icons, and TypeScript checks passed."
     ;;
 
   bootstrap)
     check_app_env
     required SUPABASE_PROJECT_REF
-    echo "Logging in to Supabase (interactive)..."
     npx supabase login
     npx supabase link --project-ref "$SUPABASE_PROJECT_REF"
-    echo "Logging in to Expo (interactive)..."
     npx eas login
     npx eas init
     npx eas build:configure
-    echo "Bootstrap complete. Export access tokens before running automated commands."
     ;;
 
   deploy)
@@ -78,14 +76,9 @@ TXT
   build-apk)
     check_app_env
     required EXPO_TOKEN
-    if ! grep -q '"projectId"' app.json; then
-      npx eas init --force --non-interactive
-    fi
-    npx eas build \
-      --platform android \
-      --profile preview \
-      --non-interactive \
-      --wait
+    generate_icons
+    if ! grep -q '"projectId"' app.json; then npx eas init --force --non-interactive; fi
+    npx eas build --platform android --profile preview --non-interactive --wait
     ;;
 
   status)
@@ -93,11 +86,6 @@ TXT
     npx eas build:list --platform android --limit 5 --non-interactive
     ;;
 
-  shell)
-    exec bash
-    ;;
-
-  *)
-    exec "$@"
-    ;;
+  shell) exec bash ;;
+  *) exec "$@" ;;
 esac
