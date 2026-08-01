@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">WG Clean app icon</title>
+  <desc id="desc">Minimalist amber broom with cyan cleaning lines on a black background.</desc>
+  <rect width="1024" height="1024" rx="224" fill="#0B0B0D"/>
+  <rect x="472" y="168" width="80" height="474" rx="40" fill="#F5B540"/>
+  <path d="M370 608h284l72 184H298z" fill="#F5B540"/>
+  <rect x="388" y="690" width="30" height="170" rx="15" fill="#48D6CD"/>
+  <rect x="497" y="690" width="30" height="170" rx="15" fill="#48D6CD"/>
+  <rect x="606" y="690" width="30" height="170" rx="15" fill="#48D6CD"/>
+</svg>
