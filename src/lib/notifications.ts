@@ -29,22 +29,31 @@ async function ensurePermission() {
   if (status !== 'granted') throw new Error('Notification permission was not granted.');
 }
 
-export async function registerPushNotifications(householdId: string): Promise<string> {
-  await ensurePermission();
-  const nativeToken = await Notifications.getDevicePushTokenAsync();
-  if (nativeToken.type !== 'fcm' || typeof nativeToken.data !== 'string') {
-    throw new Error(`Expected an FCM token but received ${nativeToken.type}.`);
+async function saveFcmToken(householdId: string, token: Notifications.DevicePushToken): Promise<string> {
+  if (token.type !== 'android' || typeof token.data !== 'string') {
+    throw new Error(`Expected an Android FCM token but received ${token.type}.`);
   }
 
   const { error } = await supabase.rpc('register_push_token', {
     p_household_id: householdId,
-    p_push_token: nativeToken.data,
+    p_push_token: token.data,
     p_platform: 'android',
     p_device_name: Device.deviceName ?? Device.modelName ?? 'Android phone',
     p_provider: 'fcm',
   });
   if (error) throw error;
-  return nativeToken.data;
+  return token.data;
+}
+
+export async function registerPushNotifications(householdId: string): Promise<string> {
+  await ensurePermission();
+  return saveFcmToken(householdId, await Notifications.getDevicePushTokenAsync());
+}
+
+export function subscribeToPushTokenChanges(householdId: string) {
+  return Notifications.addPushTokenListener(token => {
+    saveFcmToken(householdId, token).catch(error => console.warn('Could not refresh FCM token', error));
+  });
 }
 
 export async function sendQuickTestNotification() {
