@@ -19,16 +19,27 @@ case "${1:-help}" in
     cat <<'TXT'
 WG Clean Docker commands
 
+  docker compose run --rm wgclean install
   docker compose run --rm wgclean validate
   docker compose run --rm wgclean bootstrap
   docker compose run --rm wgclean deploy
   docker compose run --rm wgclean build-apk
   docker compose run --rm wgclean status
 
+install    Install exact dependencies from package-lock.json.
 bootstrap  One-time interactive Expo/Supabase setup.
-deploy     Push DB migrations, push scheduler and Edge Function.
-build-apk  Trigger a non-interactive EAS cloud APK build.
+deploy     Push DB migrations and all Edge Functions.
+build-apk  Trigger a non-interactive EAS cloud APK build and wait for completion.
 TXT
+    ;;
+
+  install)
+    if [[ -f package-lock.json ]]; then
+      npm ci
+    else
+      npm install
+    fi
+    npx expo install --check
     ;;
 
   validate)
@@ -60,7 +71,8 @@ TXT
     npx supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
     npx supabase functions deploy send-reminders --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
     npx supabase functions deploy send-test-push --project-ref "$SUPABASE_PROJECT_REF"
-    echo "Supabase database and reminder function deployed."
+    npx supabase functions deploy manage-roommates --project-ref "$SUPABASE_PROJECT_REF"
+    echo "Supabase database and all Edge Functions deployed."
     ;;
 
   build-apk)
