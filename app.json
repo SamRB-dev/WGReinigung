@@ -7,13 +7,17 @@
     "scheme": "wgclean",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "icon": "./assets/app-icon.png",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.example.wgclean"
+      "bundleIdentifier": "com.example.wgclean",
+      "icon": "./assets/app-icon.png"
     },
     "android": {
       "package": "com.example.wgclean",
+      "icon": "./assets/app-icon.png",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B0B0D"
       },
       "permissions": [
