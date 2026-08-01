@@ -13,7 +13,6 @@ Notifications.setNotificationHandler({
 });
 
 async function ensurePermission() {
-  if (!Device.isDevice) throw new Error('Notifications require a physical phone.');
   if (Platform.OS !== 'android') throw new Error('Direct FCM notifications currently support Android only.');
 
   await Notifications.setNotificationChannelAsync('cleaning-reminders', {
@@ -38,7 +37,7 @@ async function saveFcmToken(householdId: string, token: Notifications.DevicePush
     p_household_id: householdId,
     p_push_token: token.data,
     p_platform: 'android',
-    p_device_name: Device.deviceName ?? Device.modelName ?? 'Android phone',
+    p_device_name: Device.deviceName ?? Device.modelName ?? (Device.isDevice ? 'Android phone' : 'Android emulator'),
     p_provider: 'fcm',
   });
   if (error) throw error;
@@ -56,12 +55,24 @@ export function subscribeToPushTokenChanges(householdId: string) {
   });
 }
 
+export async function unregisterPushNotifications(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    const token = await Notifications.getDevicePushTokenAsync();
+    if (token.type !== 'android' || typeof token.data !== 'string') return;
+    const { error } = await supabase.rpc('unregister_push_token', { p_push_token: token.data });
+    if (error) throw error;
+  } catch (error) {
+    console.warn('Could not unregister FCM token before sign out', error);
+  }
+}
+
 export async function sendQuickTestNotification() {
   await ensurePermission();
   await Notifications.scheduleNotificationAsync({
     content: {
       title: '🧪 WG Clean local test',
-      body: 'Notifications are working on this phone.',
+      body: 'Notifications are working on this device.',
       sound: 'default',
     },
     trigger: null,
