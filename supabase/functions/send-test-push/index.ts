@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { isInvalidFcmToken, sendFcmMessage } from '../_shared/fcm.ts';
 
 const jsonHeaders = { 'Content-Type': 'application/json' };
 
@@ -28,7 +29,6 @@ Deno.serve(async (req) => {
     .select('user_id')
     .eq('household_id', membership.household_id)
     .not('user_id', 'is', null);
-
   if (membersError) return new Response(JSON.stringify({ error: membersError.message }), { status: 400, headers: jsonHeaders });
 
   const userIds = [...new Set((members ?? []).map(member => member.user_id).filter(Boolean))];
@@ -36,29 +36,34 @@ Deno.serve(async (req) => {
 
   const { data: tokens, error: tokenError } = await admin
     .from('push_tokens')
-    .select('expo_push_token,user_id')
+    .select('push_token,user_id')
     .in('user_id', userIds)
+    .eq('provider', 'fcm')
     .eq('is_active', true);
-
   if (tokenError) return new Response(JSON.stringify({ error: tokenError.message }), { status: 400, headers: jsonHeaders });
 
   const results = [];
   for (const row of tokens ?? []) {
-    const response = await fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: row.expo_push_token,
-        sound: 'default',
-        channelId: 'cleaning-reminders',
+    try {
+      const messageId = await sendFcmMessage({
+        token: row.push_token,
         title: '🧪 WG Clean household test',
-        body: 'Push notifications are working for your household.',
-        priority: 'high',
+        body: 'Remote notifications are working for your household.',
         data: { type: 'household-test', householdId: membership.household_id },
-      }),
-    });
-    results.push({ userId: row.user_id, response: await response.json() });
+      });
+      results.push({ userId: row.user_id, status: 'sent', messageId });
+    } catch (error) {
+      if (isInvalidFcmToken(error)) {
+        await admin.from('push_tokens').update({ is_active: false }).eq('push_token', row.push_token);
+      }
+      results.push({ userId: row.user_id, status: 'failed', error: String(error) });
+    }
   }
 
-  return new Response(JSON.stringify({ ok: true, count: results.length, results }), { headers: jsonHeaders });
+  return new Response(JSON.stringify({
+    ok: true,
+    count: results.filter(result => result.status === 'sent').length,
+    attempted: results.length,
+    results,
+  }), { headers: jsonHeaders });
 });

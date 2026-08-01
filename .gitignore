@@ -9,3 +9,5 @@ dist/
 *.aab
 coverage/
 .DS_Store
+google-services.json
+firebase-service-account.json
