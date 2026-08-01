@@ -7,6 +7,7 @@ import { colors } from '@/theme';
 
 type MemberDraft = { display_name: string; email: string };
 const emptyMember = (): MemberDraft => ({ display_name: '', email: '' });
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SetupScreen() {
   const [householdName, setHouseholdName] = useState('Our WG');
@@ -37,22 +38,34 @@ export default function SetupScreen() {
     setLoading(true);
     const { error } = await supabase.rpc('join_household_with_invite', { p_code: code });
     setLoading(false);
-    if (error) {
-      Alert.alert('Could not join household', error.message);
-      return;
-    }
+    if (error) return Alert.alert('Could not join household', error.message);
     router.replace('/home');
   }
 
   async function createHousehold() {
-    if (!householdName.trim() || members.some(member => !member.display_name.trim() || !member.email.trim())) return Alert.alert('Missing information', 'Enter the household name and every roommate name and email.');
-    const normalizedEmails = members.map(member => member.email.trim().toLowerCase());
+    if (!householdName.trim() || members.some(member => !member.display_name.trim() || !member.email.trim())) {
+      return Alert.alert('Missing information', 'Enter the household name and every roommate name and email.');
+    }
+    const normalizedMembers = members.map(member => ({
+      display_name: member.display_name.trim(),
+      email: member.email.trim().toLowerCase(),
+    }));
+    const invalid = normalizedMembers.find(member => !EMAIL_PATTERN.test(member.email));
+    if (invalid) return Alert.alert('Invalid email', `${invalid.email || 'A roommate email'} is not a valid email address.`);
+    const normalizedEmails = normalizedMembers.map(member => member.email);
     if (new Set(normalizedEmails).size !== normalizedEmails.length) return Alert.alert('Duplicate email', 'Each roommate must use a unique email address.');
+
     setLoading(true);
-    const { error } = await supabase.rpc('create_household_with_members', { p_household_name: householdName.trim(), p_members: members.map((member, index) => ({ ...member, email: member.email.trim().toLowerCase(), rotation_position: index })) });
+    const { error } = await supabase.rpc('create_household_with_members', {
+      p_household_name: householdName.trim(),
+      p_members: normalizedMembers.map((member, index) => ({ ...member, rotation_position: index })),
+    });
     setLoading(false);
     if (error) Alert.alert('Setup failed', error.message);
-    else { Alert.alert('Household created', 'You can share the household invite code from Settings.'); router.replace('/home'); }
+    else {
+      Alert.alert('Household created', 'You can share the household invite code from Settings.');
+      router.replace('/home');
+    }
   }
 
   return <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}><ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
