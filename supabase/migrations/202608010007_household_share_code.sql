@@ -1,46 +1,42 @@
-create or replace function public.get_household_share_code()
-returns table(household_name text, invite_code text, member_count int, is_admin boolean)
-language plpgsql
-security definer
-set search_path=public
-as $$
-declare
-  h_id uuid;
-  admin_flag boolean;
-begin
-  select hm.household_id, hm.is_admin
-  into h_id, admin_flag
-  from public.household_members hm
-  where hm.user_id = auth.uid()
-  limit 1;
-
-  if h_id is null then
-    raise exception 'NO_HOUSEHOLD';
-  end if;
-
-  return query
-  select hh.name, hh.invite_code, count(hm.id)::int, admin_flag
-  from public.households hh
-  join public.household_members hm on hm.household_id = hh.id
-  where hh.id = h_id
-  group by hh.id, hh.name, hh.invite_code;
-end;
-$$;
-
-grant execute on function public.get_household_share_code() to authenticated;
-
-create or replace function public.join_household_with_share_code(p_code text)
-returns void
+create or replace function public.get_household_invite_code()
+returns jsonb
 language plpgsql
 security definer
 set search_path=public
 as $$
 declare
   h public.households%rowtype;
-  signed_email text;
-  display_name text;
-  next_position int;
-  current_count int;
+begin
+  select hh.* into h
+  from public.households hh
+  join public.household_members hm on hm.household_id = hh.id
+  where hm.user_id = auth.uid()
+  limit 1;
+
+  if h.id is null then
+    raise exception 'NO_HOUSEHOLD';
+  end if;
+
+  return jsonb_build_object(
+    'householdName', h.name,
+    'inviteCode', h.invite_code
+  );
+end;
+$$;
+
+grant execute on function public.get_household_invite_code() to authenticated;
+
+create or replace function public.join_household_with_invite(p_code text)
+returns void
+language plpgsql
+security definer
+set search_path=public
+as $$
+declare
+  secure_invite public.household_member_invites%rowtype;
+  target_member public.household_members%rowtype;
+  signed_email text := lower(coalesce(auth.jwt()->>'email',''));
+  normalized_code text := upper(trim(p_code));
 begin
   if auth.uid() is null then
     raise exception 'Authentication required';
@@ -50,33 +46,57 @@ begin
     raise exception 'You already belong to a household';
   end if;
 
-  select hh.* into h
-  from public.households hh
-  where upper(hh.invite_code) = upper(trim(p_code))
+  select i.* into secure_invite
+  from public.household_member_invites i
+  where i.code_hash = encode(digest(normalized_code,'sha256'),'hex')
+    and i.accepted_at is null
+    and i.revoked_at is null
+    and i.expires_at > now()
   limit 1;
 
-  if h.id is null then
-    raise exception 'Household invite code is invalid';
+  if secure_invite.id is not null then
+    select hm.* into target_member
+    from public.household_members hm
+    where hm.id = secure_invite.member_id;
+
+    if lower(target_member.email) <> signed_email then
+      raise exception 'This invite was created for a different email address';
+    end if;
+
+    update public.household_members hm
+    set user_id = auth.uid()
+    where hm.id = target_member.id and hm.user_id is null;
+
+    if not found then
+      raise exception 'This household place has already been claimed';
+    end if;
+
+    update public.household_member_invites i
+    set accepted_at = now()
+    where i.id = secure_invite.id;
+    return;
   end if;
 
-  select count(*) into current_count
+  select hm.* into target_member
   from public.household_members hm
-  where hm.household_id = h.id;
+  join public.households hh on hh.id = hm.household_id
+  where upper(hh.invite_code) = normalized_code
+    and lower(hm.email) = signed_email
+    and hm.user_id is null
+  limit 1;
 
-  if current_count >= 12 then
-    raise exception 'This household already has the maximum of 12 members';
+  if target_member.id is null then
+    raise exception 'Invite code is invalid, expired, or not assigned to your email address';
   end if;
 
-  signed_email := lower(coalesce(auth.jwt()->>'email',''));
-  display_name := trim(coalesce(auth.jwt()->'user_metadata'->>'display_name', split_part(signed_email,'@',1), 'Roommate'));
+  update public.household_members hm
+  set user_id = auth.uid()
+  where hm.id = target_member.id and hm.user_id is null;
 
-  select coalesce(max(hm.rotation_position),-1)+1 into next_position
-  from public.household_members hm
-  where hm.household_id = h.id;
-
-  insert into public.household_members(household_id,user_id,display_name,email,rotation_position,is_admin)
-  values(h.id,auth.uid(),display_name,signed_email,next_position,false);
+  if not found then
+    raise exception 'This household place has already been claimed';
+  end if;
 end;
 $$;
 
-grant execute on function public.join_household_with_share_code(text) to authenticated;
+grant execute on function public.join_household_with_invite(text) to authenticated;
