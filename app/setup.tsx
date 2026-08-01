@@ -32,12 +32,16 @@ export default function SetupScreen() {
   }
 
   async function joinHousehold() {
-    if (!inviteCode.trim()) return;
+    const code = inviteCode.trim();
+    if (!code) return;
     setLoading(true);
-    const { error } = await supabase.rpc('join_household_with_invite', { p_code: inviteCode.trim() });
+    const { error } = await supabase.rpc('join_household_with_invite', { p_code: code });
     setLoading(false);
-    if (error) Alert.alert('Could not join household', error.message);
-    else router.replace('/home');
+    if (error) {
+      Alert.alert('Could not join household', error.message);
+      return;
+    }
+    router.replace('/home');
   }
 
   async function createHousehold() {
@@ -48,12 +52,12 @@ export default function SetupScreen() {
     const { error } = await supabase.rpc('create_household_with_members', { p_household_name: householdName.trim(), p_members: members.map((member, index) => ({ ...member, email: member.email.trim().toLowerCase(), rotation_position: index })) });
     setLoading(false);
     if (error) Alert.alert('Setup failed', error.message);
-    else { Alert.alert('Household created', 'Open Admin to generate and share a secure invite for each roommate.'); router.replace('/home'); }
+    else { Alert.alert('Household created', 'You can share the household invite code from Settings.'); router.replace('/home'); }
   }
 
   return <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}><ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
     <Title>Household setup</Title>
-    <Card accent><Label>Join an existing household</Label><Text style={styles.help}>Create your account with the same email the admin invited, then enter the one-time code.</Text><Field value={inviteCode} onChangeText={setInviteCode} autoCapitalize="characters" placeholder="AB12-CD34-EF56" /><Button label="Join household" onPress={joinHousehold} disabled={!inviteCode.trim() || loading} /></Card>
+    <Card accent><Label>Join an existing household</Label><Text style={styles.help}>Enter either a one-time roommate code or the household code from Settings. Your account email must match a roommate added by the admin.</Text><Field value={inviteCode} onChangeText={setInviteCode} autoCapitalize="characters" placeholder="AB12-CD34-EF56" /><Button label="Join household" onPress={joinHousehold} disabled={!inviteCode.trim() || loading} /></Card>
     <Text style={styles.or}>or create a new household</Text>
     <Card><Label>Household name</Label><Field value={householdName} onChangeText={setHouseholdName} /></Card>
     <Card><Label>People in household</Label><View style={styles.counter}><Button label="−" onPress={() => setHouseholdSize(members.length - 1)} disabled={members.length <= 1 || loading} secondary /><Text style={styles.count}>{members.length}</Text><Button label="+" onPress={() => setHouseholdSize(members.length + 1)} disabled={members.length >= 12 || loading} secondary /></View></Card>

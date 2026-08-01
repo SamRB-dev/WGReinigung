@@ -28,6 +28,13 @@ export default function AdminScreen() {
   const parseHours = (value: string) => [...new Set(value.split(',').map(v => Number(v.trim())).filter(v => Number.isInteger(v) && v >= 0 && v <= 23))].sort((a,b)=>a-b);
   async function save() { setLoading(true); const { error } = await supabase.rpc('update_household_settings', { p_name: name.trim(), p_weekly_hours: parseHours(weeklyHours), p_bio_hours: parseHours(bioHours) }); setLoading(false); if (error) Alert.alert('Could not save', error.message); else Alert.alert('Saved', 'Household settings updated.'); }
   async function sendEvent() { if (!title.trim() || !body.trim()) return Alert.alert('Missing information', 'Add a title and message.'); setLoading(true); const { error } = await supabase.rpc('create_household_event', { p_title: title.trim(), p_body: body.trim() }); if (!error) await supabase.functions.invoke('send-reminders', { body: { forceEvents: true } }); setLoading(false); if (error) Alert.alert('Could not send', error.message); else { setTitle(''); setBody(''); Alert.alert('Sent', 'The notification was queued for everyone.'); } }
+  async function testHouseholdPush() {
+    setLoading(true);
+    const { data, error } = await supabase.functions.invoke('send-test-push', { body: {} });
+    setLoading(false);
+    if (error) return Alert.alert('Push test failed', error.message);
+    Alert.alert('Test sent', `Sent to ${Number(data?.count ?? 0)} registered household device${Number(data?.count ?? 0) === 1 ? '' : 's'}.`);
+  }
 
   async function shareInvite(member: Member) {
     setLoading(true);
@@ -53,6 +60,7 @@ export default function AdminScreen() {
   if (!settings) return <ScrollView contentContainerStyle={styles.screen}><Text style={styles.help}>Loading admin settings…</Text></ScrollView>;
   return <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled"><Title>{t('adminTools')}</Title><Text style={styles.help}>{t('adminOnly')}</Text>
     <Card accent><Label>{t('sendToEveryone')}</Label><Field value={title} onChangeText={setTitle} placeholder={t('announcementTitle')} /><Field value={body} onChangeText={setBody} placeholder={t('announcementBody')} multiline style={{ minHeight: 90, textAlignVertical: 'top' }} /><Button label={t('sendToEveryone')} onPress={sendEvent} disabled={loading} /></Card>
+    <Card><Label>Push notifications</Label><Text style={styles.help}>Send one remote test notification to every active device registered by joined members of this household.</Text><Button label={loading ? 'Sending test…' : 'Test push for everyone'} onPress={testHouseholdPush} disabled={loading} secondary /></Card>
     <Card><Label>Roommates</Label>{members.map(member => <View key={member.id} style={styles.memberRow}><View style={{ flex: 1 }}><Text style={styles.memberName}>{member.display_name}{member.is_admin ? ' · Admin' : ''}</Text><Text style={styles.help}>{member.email}{member.user_id ? ' · Joined' : ' · Waiting'}</Text></View>{!member.is_admin && !member.user_id ? <Button label="Share invite" onPress={() => shareInvite(member)} disabled={loading} secondary /> : null}{!member.is_admin ? <Button label="Remove" onPress={() => confirmRemove(member)} disabled={loading} secondary /> : null}</View>)}<Field value={newName} onChangeText={setNewName} placeholder="Roommate name" /><Field value={newEmail} onChangeText={setNewEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Roommate email" /><Button label="Add roommate and share invite" onPress={addRoommate} disabled={loading} secondary /></Card>
     <Card><Label>{t('reminderSchedule')}</Label><Field value={name} onChangeText={setName} placeholder={t('householdName')} /><Text style={styles.help}>The assigned cleaner receives reminders every day at the seven configured hours until the deadline.</Text><Field value={weeklyHours} onChangeText={setWeeklyHours} keyboardType="numbers-and-punctuation" placeholder="7,9,11,13,15,18,21" /><Text style={styles.help}>{t('weeklyHours')}</Text><Field value={bioHours} onChangeText={setBioHours} keyboardType="numbers-and-punctuation" placeholder="9,14,19" /><Text style={styles.help}>{t('bioHours')}</Text><Button label={t('saveSettings')} onPress={save} disabled={loading} secondary /></Card>
   </ScrollView>;
