@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "WG Clean",
+    "slug": "wg-clean",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "scheme": "wgclean",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.wgclean"
+    },
+    "android": {
+      "package": "com.example.wgclean",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0B0D"
+      },
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-notifications"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "6f660f43-0f38-46b4-b07d-f96dbc929d54"
+      }
+    },
+    "owner": "samrb-devs-team"
+  }
+}
