@@ -16,8 +16,16 @@ Deno.serve(async (req) => {
   const user = userData.user;
 
   if (action === 'delete-account') {
-    const { error } = await admin.auth.admin.deleteUser(user.id);
-    return new Response(JSON.stringify(error ? { error: error.message } : { ok: true }), { status: error ? 400 : 200, headers });
+    const { error: prepareError } = await admin.rpc('prepare_account_deletion', { p_user_id: user.id });
+    if (prepareError) {
+      return new Response(JSON.stringify({ error: prepareError.message }), { status: 400, headers });
+    }
+
+    const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
+    return new Response(
+      JSON.stringify(deleteError ? { error: deleteError.message } : { ok: true }),
+      { status: deleteError ? 400 : 200, headers },
+    );
   }
 
   const { data: adminMember } = await admin.from('household_members').select('household_id,is_admin').eq('user_id', user.id).maybeSingle();
