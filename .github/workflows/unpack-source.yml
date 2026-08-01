@@ -5,7 +5,7 @@ on:
     branches:
       - feat/wg-clean-app
     paths:
-      - '.bootstrap/source.zip.b64'
+      - '.bootstrap/**'
       - '.github/workflows/unpack-source.yml'
 
 permissions:
@@ -24,8 +24,9 @@ jobs:
       - name: Decode and unpack source
         shell: bash
         run: |
-          test -f .bootstrap/source.zip.b64
-          base64 --decode .bootstrap/source.zip.b64 > /tmp/wg-clean-source.zip
+          test -f .bootstrap/part05.b64
+          cat .bootstrap/part*.b64 > /tmp/wg-clean-source.b64
+          base64 --decode /tmp/wg-clean-source.b64 > /tmp/wg-clean-source.zip
           unzip -o /tmp/wg-clean-source.zip -d .
           rm -rf .bootstrap
           rm -f .github/workflows/unpack-source.yml
