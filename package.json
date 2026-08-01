@@ -1,0 +1,39 @@
+{
+  "name": "wg-clean-shared",
+  "version": "1.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "build:apk": "eas build --platform android --profile preview",
+    "build:playstore": "eas build --platform android --profile production",
+    "docker:validate": "docker compose run --rm wgclean validate",
+    "docker:deploy": "docker compose run --rm wgclean deploy",
+    "docker:apk": "docker compose run --rm wgclean build-apk"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^3.1.0",
+    "@supabase/supabase-js": "^2.56.0",
+    "expo": "~57.0.9",
+    "expo-constants": "~57.0.6",
+    "expo-linking": "~57.0.4",
+    "expo-router": "~57.0.9",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-safe-area-context": "5.8.0",
+    "react-native-screens": "4.26.2",
+    "react-native-url-polyfill": "^4.0.0",
+    "expo-notifications": "~57.0.8",
+    "expo-device": "~57.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.18",
+    "typescript": "~6.0.3"
+  }
+}

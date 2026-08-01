@@ -1,0 +1,22 @@
+services:
+  wgclean:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    env_file:
+      - .env
+      - path: .env.docker
+        required: false
+    volumes:
+      - .:/workspace
+      - wgclean_node_modules:/workspace/node_modules
+      - supabase_config:/root/.supabase
+      - expo_config:/root/.expo
+    stdin_open: true
+    tty: true
+
+volumes:
+  wgclean_node_modules:
+  supabase_config:
+  expo_config:

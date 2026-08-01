@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+!.env.docker.example
+node_modules/
+.expo/
+dist/
+*.apk
+*.aab
+coverage/
+.DS_Store
