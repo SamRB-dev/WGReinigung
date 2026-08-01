@@ -11,9 +11,7 @@ create table if not exists public.household_member_invites (
 );
 
 alter table public.household_member_invites enable row level security;
-
-create policy "admins read household invites" on public.household_member_invites
-for select using (public.is_household_admin(household_id));
+create policy "admins read household invites" on public.household_member_invites for select using (public.is_household_admin(household_id));
 
 create or replace function public.add_household_member(p_display_name text, p_email text)
 returns uuid language plpgsql security definer set search_path=public as $$
@@ -51,8 +49,7 @@ declare h_id uuid;
 begin
   select household_id into h_id from household_members where user_id=auth.uid() and is_admin=true limit 1;
   if h_id is null then raise exception 'Admin access required'; end if;
-  update household_member_invites set revoked_at=now()
-  where member_id=p_member_id and household_id=h_id and accepted_at is null and revoked_at is null;
+  update household_member_invites set revoked_at=now() where member_id=p_member_id and household_id=h_id and accepted_at is null and revoked_at is null;
 end; $$;
 grant execute on function public.revoke_member_invite(uuid) to authenticated;
 
@@ -62,10 +59,7 @@ declare invite household_member_invites%rowtype; member household_members%rowtyp
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if exists(select 1 from household_members where user_id=auth.uid()) then raise exception 'You already belong to a household'; end if;
-  select * into invite from household_member_invites
-  where code_hash=encode(digest(upper(trim(p_code)),'sha256'),'hex')
-    and accepted_at is null and revoked_at is null and expires_at>now()
-  limit 1;
+  select * into invite from household_member_invites where code_hash=encode(digest(upper(trim(p_code)),'sha256'),'hex') and accepted_at is null and revoked_at is null and expires_at>now() limit 1;
   if invite.id is null then raise exception 'Invite code is invalid, expired, or revoked'; end if;
   select * into member from household_members where id=invite.member_id;
   if lower(member.email)<>signed_email then raise exception 'This invite was created for a different email address'; end if;
@@ -75,7 +69,8 @@ begin
 end; $$;
 grant execute on function public.join_household_with_invite(text) to authenticated;
 
-create or replace function public.get_household_members()
+drop function if exists public.get_household_members();
+create function public.get_household_members()
 returns table(id uuid,user_id uuid,display_name text,email text,rotation_position int,is_admin boolean,is_active boolean)
 language plpgsql security definer set search_path=public as $$
 declare h_id uuid;
