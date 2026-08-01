@@ -7,6 +7,7 @@ export default function RootLayout() {
   return <LanguageProvider><StatusBar style="light" />
     <Stack screenOptions={{ headerStyle: { backgroundColor: colors.background }, headerTintColor: colors.text, headerTitleStyle: { fontWeight: '900' }, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="signup" options={{ title: 'Create account' }} />
       <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
       <Stack.Screen name="setup" options={{ title: 'Household setup' }} />
       <Stack.Screen name="home" options={{ title: 'WG Clean', headerBackVisible: false }} />
