@@ -35,18 +35,10 @@ export default function SetupScreen() {
     const code = inviteCode.trim();
     if (!code) return;
     setLoading(true);
-
-    const secureInvite = await supabase.rpc('join_household_with_invite', { p_code: code });
-    if (!secureInvite.error) {
-      setLoading(false);
-      router.replace('/home');
-      return;
-    }
-
-    const householdInvite = await supabase.rpc('join_household_with_share_code', { p_code: code });
+    const { error } = await supabase.rpc('join_household_with_invite', { p_code: code });
     setLoading(false);
-    if (householdInvite.error) {
-      Alert.alert('Could not join household', 'The code is invalid, expired, revoked, or the household is full.');
+    if (error) {
+      Alert.alert('Could not join household', error.message);
       return;
     }
     router.replace('/home');
@@ -65,7 +57,7 @@ export default function SetupScreen() {
 
   return <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}><ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
     <Title>Household setup</Title>
-    <Card accent><Label>Join an existing household</Label><Text style={styles.help}>Enter either a secure one-time roommate code or the household share code from Settings.</Text><Field value={inviteCode} onChangeText={setInviteCode} autoCapitalize="characters" placeholder="AB12-CD34-EF56" /><Button label="Join household" onPress={joinHousehold} disabled={!inviteCode.trim() || loading} /></Card>
+    <Card accent><Label>Join an existing household</Label><Text style={styles.help}>Enter either a one-time roommate code or the household code from Settings. Your account email must match a roommate added by the admin.</Text><Field value={inviteCode} onChangeText={setInviteCode} autoCapitalize="characters" placeholder="AB12-CD34-EF56" /><Button label="Join household" onPress={joinHousehold} disabled={!inviteCode.trim() || loading} /></Card>
     <Text style={styles.or}>or create a new household</Text>
     <Card><Label>Household name</Label><Field value={householdName} onChangeText={setHouseholdName} /></Card>
     <Card><Label>People in household</Label><View style={styles.counter}><Button label="−" onPress={() => setHouseholdSize(members.length - 1)} disabled={members.length <= 1 || loading} secondary /><Text style={styles.count}>{members.length}</Text><Button label="+" onPress={() => setHouseholdSize(members.length + 1)} disabled={members.length >= 12 || loading} secondary /></View></Card>
